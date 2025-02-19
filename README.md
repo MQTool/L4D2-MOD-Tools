@@ -1,5 +1,5 @@
 # L4D2-MOD-Tools
-在制作求生之路2人物MOD过程中使用AI编写的一些简易程序与代码，能大大增加MOD制作的效率（包含MAX脚本/Blender插件/Python程序/批处理文件）
+在制作求生之路2人物MOD过程中使用AI编写的一些简易程序与代码，能大大增加MOD制作的效率（包含MAX脚本/Blender插件/Python程序/批处理文件）  
 AI-generated simple scripts and code (including MaxScripts, Blender add-ons, Python utilities, and batch files) can significantly streamline character MOD development for Left 4 Dead 2, boosting production efficiency.
 
 ## Blender插件功能：
@@ -32,3 +32,31 @@ AI-generated simple scripts and code (including MaxScripts, Blender add-ons, Pyt
 ## 批处理脚本
 1.支持快速打包MOD，可自定义addonDescription中的内容/MOD版本/MOD名称/MOD作者，支持比尔手办单独打包与跳过相关部分VGUI  
 支持动态VGUI打包  
+
+Blender Add-on Features:  
+Batch process collections compatible with L4Neko's in-game switches, support QC scripting for SMD/GLB formats with exclusion lists.  
+Add outlines to models, with options for single or multiple models.  
+Quick selection of bones by specific names.  
+Simulate 3ds Max's Schematic View (manual synchronization required).  
+3ds Max Script Features:  
+Rapidly rename objects in the scene with customizable presets.  
+Align official bones to custom bones (supports Uma Musume models).  
+Quickly select non-official/custom bones outside the main body skeleton.  
+Disable deformations in all Skin Modifiers across the scene.  
+Pose custom models into T-Pose with preset configurations.  
+Graft custom bones onto official skeletons (supports Uma Musume-specific workflows).  
+Create frame-based facial expressions (MMD-only support).  
+Add outlines to models with safety checks to prevent duplicates.  
+Pose models into 40-frame standard VRD poses, generate QC scripts, export SMDs (adjustable angles/experimental options/special case handling).  
+Auto-process 30-frame standard foot VRD poses (includes QC scripting/action SMD export).  
+Align hand models to official model positions.  
+Simulate gravity and angle constraints with hierarchical bone decay for dynamic sway.  
+Merge weights à la BlenderCats plugin (parent/active bone modes).  
+Export SMD objects (animation/facial tracking meshes with eye movements).  
+Output bone/object names from the current scene.  
+Python Tool Features:  
+Split component materials with parent-child hierarchy support, auto-generate addoninfo, glowing components, and custom folder structures.  
+Customizable MOD name, author, and addoninfo metadata.  
+Batch Script Features:  
+Auto-pack MODs with customizable addonDescription, version, name, and author.  
+Support Bill figurine-specific packaging, skip VGUI sections, and dynamic VGUI bundling.  
