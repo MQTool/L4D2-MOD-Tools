@@ -1,0 +1,12 @@
+"AddonInfo"
+{
+addontitle ""
+addonContent_Skin "1"
+addonContent_Survivor "1"
+addonversion "1.0"
+addonauthor "地狱酱"
+addonauthorSteamID "地狱酱"
+addonDescription "
+Description.txt
+"
+}
