@@ -33,12 +33,13 @@ AI-generated simple scripts and code (including MaxScripts, Blender add-ons, Pyt
 1.支持快速打包MOD，可自定义addonDescription中的内容/MOD版本/MOD名称/MOD作者，支持比尔手办单独打包与跳过相关部分VGUI  
 支持动态VGUI打包  
 
-Blender Add-on Features:  
+## Blender Add-on Features:  
 Batch process collections compatible with L4Neko's in-game switches, support QC scripting for SMD/GLB formats with exclusion lists.  
 Add outlines to models, with options for single or multiple models.  
 Quick selection of bones by specific names.  
 Simulate 3ds Max's Schematic View (manual synchronization required).  
-3ds Max Script Features:  
+
+## 3ds Max Script Features:  
 Rapidly rename objects in the scene with customizable presets.  
 Align official bones to custom bones (supports Uma Musume models).  
 Quickly select non-official/custom bones outside the main body skeleton.  
@@ -54,9 +55,11 @@ Simulate gravity and angle constraints with hierarchical bone decay for dynamic 
 Merge weights à la BlenderCats plugin (parent/active bone modes).  
 Export SMD objects (animation/facial tracking meshes with eye movements).  
 Output bone/object names from the current scene.  
-Python Tool Features:  
+
+## Python Tool Features:  
 Split component materials with parent-child hierarchy support, auto-generate addoninfo, glowing components, and custom folder structures.  
-Customizable MOD name, author, and addoninfo metadata.  
-Batch Script Features:  
+Customizable MOD name, author, and addoninfo metadata. 
+
+## Batch Script Features:  
 Auto-pack MODs with customizable addonDescription, version, name, and author.  
 Support Bill figurine-specific packaging, skip VGUI sections, and dynamic VGUI bundling.  
