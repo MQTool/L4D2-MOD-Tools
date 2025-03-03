@@ -3,7 +3,7 @@
 AI-generated simple scripts and code (including MaxScripts, Blender add-ons, Python utilities, and batch files) can significantly streamline character MOD development for Left 4 Dead 2, boosting production efficiency.
 
 ## Blender插件功能：
-1.适配L4Neko的局内开关可能批量处理合集，并且支持SMD/glb俩种格式的qc编写，有排除名单  
+1.适配L4Neko的局内开关可能批量处理合集，并且支持SMD/GLB/DMX格式的qc编写，有模型排除名单与材质排除名单，可使用自定义api进行机器翻译或ai翻译，将描边模型快速放置到最近的模型集合中，总合集功能可以将所有合集放入一个合集中。
 2.为模型添加描边，可选单个与多个模型  
 3.快速选择特定名称骨骼  
 4.仿造Max的图解视图，但是需要手动同步  
@@ -34,7 +34,7 @@ AI-generated simple scripts and code (including MaxScripts, Blender add-ons, Pyt
 支持动态VGUI打包  
 
 ## Blender Add-on Features:  
-Batch process collections compatible with L4Neko's in-game switches, support QC scripting for SMD/GLB formats with exclusion lists.  
+Adapted for L4Neko's in-game switch batch processing collection, supporting QC scripting for SMD/GLB/DMX formats, with model exclusion lists and material exclusion lists. Includes custom API integration for machine translation or AI translation, enables rapid placement of outlined models into the nearest model collection, and features a master collection function to consolidate all sub-collections into a single unified collection.
 Add outlines to models, with options for single or multiple models.  
 Quick selection of bones by specific names.  
 Simulate 3ds Max's Schematic View (manual synchronization required).  
