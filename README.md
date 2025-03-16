@@ -6,7 +6,9 @@ AI-generated simple scripts and code (including MaxScripts, Blender add-ons, Pyt
 1.适配L4Neko的局内开关可能批量处理合集，并且支持SMD/GLB/DMX格式的qc编写，有模型排除名单与材质排除名单，可使用自定义api进行机器翻译或ai翻译，将描边模型快速放置到最近的模型集合中，总合集功能可以将所有合集放入一个合集中。
 2.为模型添加描边，可选单个与多个模型  
 3.快速选择特定名称骨骼  
-4.仿造Max的图解视图，但是需要手动同步  
+4.快速清除自定义形状骨骼
+5.快速VMT材质批量复制工具，根据blender模型材质批量映射生成vmt文件
+[以上工具现已合并为一个插件]
 
 ## Max脚本功能：
 1.快速重命名场景中的对象，可在脚本中编写预设  
@@ -28,6 +30,7 @@ AI-generated simple scripts and code (including MaxScripts, Blender add-ons, Pyt
 ## Python程序功能
 1.快速拆分组件材质，支持父子级功能/自动生成addoninfo/夜光组件/指定文件夹层级功能  
 可自定义MOD名称/addoninfo中的名称/MOD作者  
+2.新增加快速音频转换程序，可以通过调用ffmpeg批量映射转换音频格式/频道/采样频率/采样大小
 
 ## 批处理脚本
 1.支持快速打包MOD，可自定义addonDescription中的内容/MOD版本/MOD名称/MOD作者，支持比尔手办单独打包与跳过相关部分VGUI  
@@ -37,7 +40,9 @@ AI-generated simple scripts and code (including MaxScripts, Blender add-ons, Pyt
 Adapted for L4Neko's in-game switch batch processing collection, supporting QC scripting for SMD/GLB/DMX formats, with model exclusion lists and material exclusion lists. Includes custom API integration for machine translation or AI translation, enables rapid placement of outlined models into the nearest model collection, and features a master collection function to consolidate all sub-collections into a single unified collection.
 Add outlines to models, with options for single or multiple models.  
 Quick selection of bones by specific names.  
-Simulate 3ds Max's Schematic View (manual synchronization required).  
+Rapidly clear custom bone shapes.
+Fast VMT material batch-copy tool: Automatically generate VMT files based on Blender material mappings.
+[All tools are now merged into a single plugin]
 
 ## 3ds Max Script Features:  
 Rapidly rename objects in the scene with customizable presets.  
@@ -63,3 +68,4 @@ Customizable MOD name, author, and addoninfo metadata.
 ## Batch Script Features:  
 Auto-pack MODs with customizable addonDescription, version, name, and author.  
 Support Bill figurine-specific packaging, skip VGUI sections, and dynamic VGUI bundling.  
+New audio conversion tool: Batch convert audio formats, channels, sampling frequency, and sample size via FFmpeg.
