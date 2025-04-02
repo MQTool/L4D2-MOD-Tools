@@ -4,12 +4,14 @@ import time
 import requests
 import shutil
 import re
+import math
 from typing import Dict, Set, List, Optional
 from dataclasses import dataclass
 from collections import defaultdict, Counter
 from bpy.props import (StringProperty, BoolProperty, FloatProperty, EnumProperty,
                        IntProperty, PointerProperty, CollectionProperty)
 from bpy.types import (Panel, Operator, PropertyGroup, UIList, Menu)
+from mathutils import Vector
 
 bl_info = {
     "name": "MQ Tools",
@@ -1116,14 +1118,25 @@ class VMT_OT_CopyMaterials(Operator):
             self.report({'ERROR'}, "请先选择目标路径")
             return {'CANCELLED'}
             
+        # 将Blender的相对路径转换为绝对路径
+        target_path = bpy.path.abspath(scene.target_vmt_path)
+        
+        # 确保路径格式正确并使用正确的分隔符
+        target_path = os.path.normpath(target_path)
+        
         # 确保目标路径存在
-        os.makedirs(scene.target_vmt_path, exist_ok=True)
+        try:
+            os.makedirs(target_path, exist_ok=True)
+        except Exception as e:
+            self.report({'ERROR'}, f"创建目标路径失败: {str(e)}")
+            return {'CANCELLED'}
         
         # 复制材质文件
         copied_count = 0
         for item in scene.material_groups:
             if item.source_vmt and os.path.exists(item.source_vmt):
-                target_file = os.path.join(scene.target_vmt_path, f"{clean_material_name(item.name)}.vmt")
+                # 构建目标文件路径
+                target_file = os.path.join(target_path, f"{clean_material_name(item.name)}.vmt")
                 try:
                     shutil.copy2(item.source_vmt, target_file)
                     copied_count += 1
@@ -1162,7 +1175,8 @@ class MQT_PT_SeparatorPanel(Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = "MQ Tools"
-
+    bl_options = {'DEFAULT_CLOSED'}
+    
     def draw(self, context):
         layout = self.layout
         settings = context.scene.qseparator_settings
@@ -1279,6 +1293,7 @@ class MQT_PT_BoneSelectorPanel(Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = "MQ Tools"
+    bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
         layout = self.layout
@@ -1298,6 +1313,7 @@ class MQT_PT_OutlinePanel(Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = "MQ Tools"
+    bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
         layout = self.layout
@@ -1345,6 +1361,7 @@ class MQT_PT_BoneShapePanel(Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = "MQ Tools"
+    bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
         layout = self.layout
@@ -1368,6 +1385,7 @@ class MQT_PT_VMTPanel(Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = "MQ Tools"
+    bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
         layout = self.layout
@@ -1425,6 +1443,716 @@ class MQT_PT_VMTPanel(Panel):
         box.label(text="6. 点击'复制材质'完成操作")
 
 # --------------------------------------------------------------------------
+# 工具 4: 骨骼工具
+# --------------------------------------------------------------------------
+
+def transfer_weights(self, from_bone_name, to_bone_name, mesh):
+    """
+    改进的权重转移函数
+    """
+    # 确保目标权重组存在
+    if to_bone_name not in mesh.vertex_groups:
+        mesh.vertex_groups.new(name=to_bone_name)
+    
+    # 获取源和目标权重组
+    from_group = mesh.vertex_groups.get(from_bone_name)
+    to_group = mesh.vertex_groups.get(to_bone_name)
+    
+    if not from_group:
+        return
+    
+    # 存储每个顶点的权重
+    weights = {}
+    for vertex in mesh.data.vertices:
+        try:
+            weight = from_group.weight(vertex.index)
+            if weight > 0:
+                weights[vertex.index] = weight
+        except RuntimeError:
+            continue
+    
+    # 转移权重
+    if weights:
+        # 添加新权重
+        for vertex_index, weight in weights.items():
+            try:
+                current_weight = 0
+                try:
+                    current_weight = to_group.weight(vertex_index)
+                except RuntimeError:
+                    pass
+                # 使用 'REPLACE' 模式确保权重正确设置
+                to_group.add([vertex_index], current_weight + weight, 'REPLACE')
+            except RuntimeError:
+                continue
+    
+    # 删除原始权重组
+    mesh.vertex_groups.remove(from_group)
+
+class BONE_OT_merge_to_parent(Operator):
+    bl_idname = "bone.merge_to_parent"
+    bl_label = "合并到父级"
+    bl_description = "将选中的骨骼合并到它们的父级骨骼"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    @staticmethod
+    def transfer_weights(from_bone_name, to_bone_name, mesh):
+        """
+        改进的权重转移函数
+        """
+        # 确保目标权重组存在
+        if to_bone_name not in mesh.vertex_groups:
+            mesh.vertex_groups.new(name=to_bone_name)
+        
+        # 获取源和目标权重组
+        from_group = mesh.vertex_groups.get(from_bone_name)
+        to_group = mesh.vertex_groups.get(to_bone_name)
+        
+        if not from_group:
+            return
+        
+        # 存储每个顶点的权重
+        weights = {}
+        for vertex in mesh.data.vertices:
+            try:
+                weight = from_group.weight(vertex.index)
+                if weight > 0:
+                    weights[vertex.index] = weight
+            except RuntimeError:
+                continue
+        
+        # 转移权重
+        if weights:
+            # 添加新权重
+            for vertex_index, weight in weights.items():
+                try:
+                    current_weight = 0
+                    try:
+                        current_weight = to_group.weight(vertex_index)
+                    except RuntimeError:
+                        pass
+                    # 使用 'REPLACE' 模式确保权重正确设置
+                    to_group.add([vertex_index], current_weight + weight, 'REPLACE')
+                except RuntimeError:
+                    continue
+        
+        # 删除原始权重组
+        mesh.vertex_groups.remove(from_group)
+    
+    @classmethod
+    def poll(cls, context):
+        return (context.mode == 'POSE' and
+                context.active_object and
+                context.active_object.type == 'ARMATURE' and
+                context.selected_pose_bones)
+    
+    def get_final_parent(self, bone, bones_to_process):
+        """
+        获取骨骼的最终父级（考虑多层级合并）
+        """
+        current = bone.parent
+        while current:
+            # 检查当前父级是否也在处理列表中
+            is_parent_processed = any(b[0] == current for b in bones_to_process)
+            if is_parent_processed:
+                current = current.parent
+            else:
+                break
+        return current
+    
+    def execute(self, context):
+        obj = context.active_object
+        armature = obj.data
+        
+        # 存储要处理的骨骼，并按层级深度排序
+        bones_to_process = []
+        for pose_bone in context.selected_pose_bones:
+            if pose_bone.parent:
+                # 计算骨骼的层级深度
+                depth = 0
+                temp_bone = pose_bone
+                while temp_bone.parent:
+                    depth += 1
+                    temp_bone = temp_bone.parent
+                bones_to_process.append((pose_bone, pose_bone.parent, depth))
+        
+        # 按深度从大到小排序（先处理子骨骼）
+        bones_to_process.sort(key=lambda x: x[2], reverse=True)
+        
+        # 切换到对象模式以修改骨骼
+        bpy.ops.object.mode_set(mode='OBJECT')
+        
+        # 处理每个选中的骨骼
+        for bone, _, _ in bones_to_process:
+            # 获取最终的父级骨骼
+            final_parent = self.get_final_parent(bone, bones_to_process)
+            if not final_parent:
+                continue
+            
+            # 直接转移权重到最终父级
+            for mesh in [obj for obj in bpy.data.objects if obj.type == 'MESH' and obj.parent == context.active_object]:
+                self.transfer_weights(bone.name, final_parent.name, mesh)
+        
+        # 切换到编辑模式删除骨骼
+        bpy.ops.object.mode_set(mode='EDIT')
+        
+        # 删除骨骼
+        for bone, _, _ in bones_to_process:
+            if bone.name in armature.edit_bones:
+                edit_bone = armature.edit_bones[bone.name]
+                # 如果骨骼有子级，先将子级的父级设置为最终父级
+                if edit_bone.children:
+                    final_parent = self.get_final_parent(bone, bones_to_process)
+                    if final_parent and final_parent.name in armature.edit_bones:
+                        for child in edit_bone.children:
+                            child.parent = armature.edit_bones[final_parent.name]
+                armature.edit_bones.remove(edit_bone)
+        
+        # 返回姿态模式
+        bpy.ops.object.mode_set(mode='POSE')
+        
+        return {'FINISHED'}
+
+class BONE_OT_merge_to_active(Operator):
+    bl_idname = "bone.merge_to_active"
+    bl_label = "合并到活动骨骼"
+    bl_description = "将选中的骨骼合并到活动骨骼"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    @staticmethod
+    def transfer_weights(from_bone_name, to_bone_name, mesh):
+        """
+        改进的权重转移函数
+        """
+        # 确保目标权重组存在
+        if to_bone_name not in mesh.vertex_groups:
+            mesh.vertex_groups.new(name=to_bone_name)
+        
+        # 获取源和目标权重组
+        from_group = mesh.vertex_groups.get(from_bone_name)
+        to_group = mesh.vertex_groups.get(to_bone_name)
+        
+        if not from_group:
+            return
+        
+        # 存储每个顶点的权重
+        weights = {}
+        for vertex in mesh.data.vertices:
+            try:
+                weight = from_group.weight(vertex.index)
+                if weight > 0:
+                    weights[vertex.index] = weight
+            except RuntimeError:
+                continue
+        
+        # 转移权重
+        if weights:
+            # 添加新权重
+            for vertex_index, weight in weights.items():
+                try:
+                    current_weight = 0
+                    try:
+                        current_weight = to_group.weight(vertex_index)
+                    except RuntimeError:
+                        pass
+                    # 使用 'REPLACE' 模式确保权重正确设置
+                    to_group.add([vertex_index], current_weight + weight, 'REPLACE')
+                except RuntimeError:
+                    continue
+        
+        # 删除原始权重组
+        mesh.vertex_groups.remove(from_group)
+    
+    @classmethod
+    def poll(cls, context):
+        return (context.mode == 'POSE' and
+                context.active_pose_bone and
+                len(context.selected_pose_bones) > 1)
+    
+    def execute(self, context):
+        obj = context.active_object
+        armature = obj.data
+        active_bone = context.active_pose_bone
+        
+        # 存储要处理的骨骼
+        bones_to_process = [bone for bone in context.selected_pose_bones if bone != active_bone]
+        
+        # 切换到对象模式以修改骨骼
+        bpy.ops.object.mode_set(mode='OBJECT')
+        
+        # 处理每个选中的骨骼
+        for bone in bones_to_process:
+            # 转移权重到活动骨骼
+            for mesh in [obj for obj in bpy.data.objects if obj.type == 'MESH' and obj.parent == context.active_object]:
+                self.transfer_weights(bone.name, active_bone.name, mesh)
+        
+        # 切换到编辑模式删除骨骼
+        bpy.ops.object.mode_set(mode='EDIT')
+        for bone in bones_to_process:
+            if bone.name in armature.edit_bones:
+                edit_bone = armature.edit_bones[bone.name]
+                armature.edit_bones.remove(edit_bone)
+        
+        # 返回姿态模式
+        bpy.ops.object.mode_set(mode='POSE')
+        
+        return {'FINISHED'}
+
+class BONE_OT_remove_zero_weight(Operator):
+    bl_idname = "bone.remove_zero_weight"
+    bl_label = "清除零权重骨骼"
+    bl_description = "删除所有没有权重的骨骼"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    include_with_children: BoolProperty(
+        name="包含有子级的骨骼",
+        description="同时删除带有子骨骼的零权重骨骼",
+        default=False
+    )
+    
+    @classmethod
+    def poll(cls, context):
+        return (context.mode == 'POSE' and
+                context.active_object and
+                context.active_object.type == 'ARMATURE')
+    
+    def execute(self, context):
+        obj = context.active_object
+        armature = obj.data
+        bones_to_remove = []
+        
+        # 收集所有骨骼的权重信息
+        weight_data = {}
+        for mesh in [obj for obj in bpy.data.objects if obj.type == 'MESH' and obj.parent == context.active_object]:
+            for vertex_group in mesh.vertex_groups:
+                # 初始化权重数据
+                if vertex_group.name not in weight_data:
+                    weight_data[vertex_group.name] = 0.0
+                
+                # 计算该骨骼的总权重
+                for vertex in mesh.data.vertices:
+                    try:
+                        weight = vertex_group.weight(vertex.index)
+                        weight_data[vertex_group.name] += weight
+                    except RuntimeError:
+                        continue
+        
+        # 检查每个骨骼
+        for bone in armature.bones:
+            # 如果骨骼没有权重组或权重为0
+            if bone.name not in weight_data or weight_data[bone.name] < 0.0001:
+                # 根据选项决定是否包含有子级的骨骼
+                if not bone.children or self.include_with_children:
+                    bones_to_remove.append(bone.name)
+        
+        if not bones_to_remove:
+            self.report({'INFO'}, "没有找到零权重骨骼")
+            return {'CANCELLED'}
+        
+        # 切换到编辑模式删除骨骼
+        bpy.ops.object.mode_set(mode='EDIT')
+        
+        # 删除收集到的零权重骨骼
+        removed_count = 0
+        for bone_name in bones_to_remove:
+            if bone_name in armature.edit_bones:
+                edit_bone = armature.edit_bones[bone_name]
+                # 如果骨骼有子级，先将子级的父级设置为当前骨骼的父级
+                if self.include_with_children and edit_bone.children:
+                    parent = edit_bone.parent
+                    for child in edit_bone.children:
+                        child.parent = parent
+                armature.edit_bones.remove(edit_bone)
+                removed_count += 1
+        
+        # 返回姿态模式
+        bpy.ops.object.mode_set(mode='POSE')
+        
+        self.report({'INFO'}, f"已删除 {removed_count} 个零权重骨骼")
+        return {'FINISHED'}
+    
+    def draw(self, context):
+        layout = self.layout
+        layout.prop(self, "include_with_children")
+
+class BONE_OT_apply_pose_transform(Operator):
+    bl_idname = "bone.apply_pose_transform"
+    bl_label = "应用姿态变换"
+    bl_description = "将当前姿态设为静止姿态"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    @classmethod
+    def poll(cls, context):
+        return (context.mode == 'POSE' and
+                context.active_object and
+                context.active_object.type == 'ARMATURE')
+    
+    def execute(self, context):
+        armature_obj = context.active_object
+        
+        # 存储所有使用该骨架的网格对象及其修改器信息
+        mesh_modifiers = []
+        for obj in bpy.data.objects:
+            if obj.type == 'MESH':
+                for mod in obj.modifiers:
+                    if mod.type == 'ARMATURE' and mod.object == armature_obj:
+                        mesh_modifiers.append((obj, mod.name))
+        
+        # 切换到物体模式
+        bpy.ops.object.mode_set(mode='OBJECT')
+        
+        # 处理每个网格对象
+        for obj, mod_name in mesh_modifiers:
+            # 确保网格数据是单独的
+            if obj.data.users > 1:
+                obj.data = obj.data.copy()
+            
+            # 如果对象有形态键，我们需要特殊处理
+            if obj.data.shape_keys:
+                # 存储原始形态键值
+                original_values = {}
+                for kb in obj.data.shape_keys.key_blocks:
+                    original_values[kb.name] = kb.value
+                
+                # 存储每个形态键的变形位置
+                shape_key_positions = {}
+                
+                # 对每个形态键创建一个临时对象
+                for kb in obj.data.shape_keys.key_blocks:
+                    if kb.name != "Basis":
+                        # 创建临时对象
+                        temp_obj = obj.copy()
+                        temp_obj.data = obj.data.copy()
+                        bpy.context.scene.collection.objects.link(temp_obj)
+                        
+                        # 重置所有形态键值为0，然后设置当前形态键为1
+                        for temp_kb in temp_obj.data.shape_keys.key_blocks:
+                            temp_kb.value = 1.0 if temp_kb.name == kb.name else 0.0
+                        
+                        # 让形态键生效
+                        bpy.context.view_layer.update()
+                        
+                        # 评估修改器
+                        depsgraph = bpy.context.evaluated_depsgraph_get()
+                        temp_obj_eval = temp_obj.evaluated_get(depsgraph)
+                        
+                        # 创建一个新的网格数据来存储当前状态
+                        temp_mesh = bpy.data.meshes.new_from_object(temp_obj_eval)
+                        
+                        # 删除原始临时对象
+                        bpy.data.objects.remove(temp_obj, do_unlink=True)
+                        
+                        # 存储变形后的位置
+                        shape_key_positions[kb.name] = [v.co.copy() for v in temp_mesh.vertices]
+                        
+                        # 删除临时网格
+                        bpy.data.meshes.remove(temp_mesh)
+                
+                # 创建基础形状的临时对象
+                base_obj = obj.copy()
+                base_obj.data = obj.data.copy()
+                bpy.context.scene.collection.objects.link(base_obj)
+                
+                # 重置所有形态键值为0
+                for kb in base_obj.data.shape_keys.key_blocks:
+                    kb.value = 0
+                
+                # 让形态键生效
+                bpy.context.view_layer.update()
+                
+                # 评估修改器
+                depsgraph = bpy.context.evaluated_depsgraph_get()
+                base_obj_eval = base_obj.evaluated_get(depsgraph)
+                
+                # 创建一个新的网格数据来存储当前状态
+                base_mesh = bpy.data.meshes.new_from_object(base_obj_eval)
+                
+                # 删除原始基础对象
+                bpy.data.objects.remove(base_obj, do_unlink=True)
+                
+                # 存储基础位置
+                base_positions = [v.co.copy() for v in base_mesh.vertices]
+                
+                # 删除基础网格
+                bpy.data.meshes.remove(base_mesh)
+                
+                # 删除原始对象的形态键
+                obj.shape_key_clear()
+                
+                # 应用原始对象的修改器
+                bpy.context.view_layer.objects.active = obj
+                obj.select_set(True)
+                bpy.ops.object.modifier_apply(modifier=mod_name)
+                
+                # 重新创建形态键
+                basis = obj.shape_key_add(name="Basis")
+                basis.interpolation = 'KEY_LINEAR'
+                
+                # 使用存储的位置创建形态键
+                for name, positions in shape_key_positions.items():
+                    key_block = obj.shape_key_add(name=name)
+                    key_block.interpolation = 'KEY_LINEAR'
+                    
+                    # 直接使用变形后的位置
+                    for i, pos in enumerate(positions):
+                        key_block.data[i].co = pos
+                    
+                    # 恢复原始值
+                    key_block.value = original_values[name]
+                
+                # 重新添加骨架修改器
+                mod = obj.modifiers.new(name="Armature", type='ARMATURE')
+                mod.object = armature_obj
+                mod.use_vertex_groups = True
+                mod.use_bone_envelopes = False
+                
+                obj.select_set(False)
+            else:
+                # 对于没有形态键的对象，直接应用修改器
+                bpy.context.view_layer.objects.active = obj
+                obj.select_set(True)
+                bpy.ops.object.modifier_apply(modifier=mod_name)
+                
+                # 重新添加骨架修改器
+                mod = obj.modifiers.new(name="Armature", type='ARMATURE')
+                mod.object = armature_obj
+                mod.use_vertex_groups = True
+                mod.use_bone_envelopes = False
+                
+                obj.select_set(False)
+        
+        # 选择骨架对象
+        bpy.context.view_layer.objects.active = armature_obj
+        armature_obj.select_set(True)
+        
+        # 切换到姿态模式
+        bpy.ops.object.mode_set(mode='POSE')
+        
+        # 应用姿态为静止姿态
+        bpy.ops.pose.armature_apply(selected=False)
+        
+        # 切换回物体模式
+        bpy.ops.object.mode_set(mode='OBJECT')
+        
+        # 应用骨架的变换
+        bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+        
+        # 切换回姿态模式
+        bpy.ops.object.mode_set(mode='POSE')
+        
+        self.report({'INFO'}, "已成功应用姿态变换")
+        return {'FINISHED'}
+
+class BONE_OT_merge_siblings_half(Operator):
+    bl_idname = "bone.merge_siblings_half"
+    bl_label = "左右对称合并"
+    bl_description = "将同层级的骨骼按左右各合并一半（保持圆周分布）"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    use_global_center: bpy.props.BoolProperty(
+        name="使用全局中心",
+        description="使用所有选定骨骼的中心作为参考点，保持垂直对齐",
+        default=True
+    )
+    
+    include_root_bones: bpy.props.BoolProperty(
+        name="包含根骨骼",
+        description="同时处理没有父级的根骨骼",
+        default=True
+    )
+    
+    @classmethod
+    def poll(cls, context):
+        return (context.mode == 'POSE' and
+                context.active_object and
+                context.active_object.type == 'ARMATURE' and
+                context.selected_pose_bones)
+    
+    def execute(self, context):
+        obj = context.active_object
+        armature = obj.data
+        
+        # 计算全局中心
+        global_center = None
+        if self.use_global_center:
+            all_selected_bones = context.selected_pose_bones
+            global_center = sum((b.head for b in all_selected_bones), Vector()) / len(all_selected_bones)
+        
+        # 收集选中骨骼的层级
+        parent_level = {}
+        for bone in context.selected_pose_bones:
+            # 判断是否处理根骨骼
+            if bone.parent or self.include_root_bones:
+                # 计算骨骼所在层级深度
+                depth = 0
+                parent = bone.parent
+                while parent:
+                    depth += 1
+                    parent = parent.parent
+                parent_level[depth] = parent_level.get(depth, set())
+                parent_level[depth].add(bone)
+        
+        # 按层级处理骨骼
+        for depth, bones in parent_level.items():
+            if len(bones) < 2:
+                continue
+            
+            # 将骨骼按圆周顺序排序
+            bones_list = list(bones)
+            
+            # 决定使用哪个中心点
+            if self.use_global_center and global_center:
+                center = global_center
+            else:
+                center = sum((b.head for b in bones_list), Vector()) / len(bones_list)
+            
+            # 计算每个骨骼相对于中心的角度
+            def get_angle(bone):
+                vec = bone.head - center
+                return math.atan2(vec.y, vec.x)
+            
+            bones_list.sort(key=get_angle)
+            
+            # 计算需要保留的骨骼数量（总数的一半，向上取整）
+            target_count = (len(bones_list) + 1) // 2
+            
+            # 按圆周均匀选择要保留的骨骼
+            bones_to_keep = []
+            step = len(bones_list) / target_count
+            for i in range(target_count):
+                index = int(i * step)
+                bones_to_keep.append(bones_list[index])
+            
+            # 将其他骨骼的权重转移到最近的保留骨骼
+            bones_to_remove = [b for b in bones_list if b not in bones_to_keep]
+            
+            # 切换到对象模式进行权重转移
+            bpy.ops.object.mode_set(mode='OBJECT')
+            
+            for bone in bones_to_remove:
+                # 找到最近的保留骨骼
+                closest_bone = min(bones_to_keep, 
+                                 key=lambda b: (bone.head - b.head).length)
+                
+                # 转移权重
+                for mesh in [obj for obj in bpy.data.objects if obj.type == 'MESH' and obj.parent == context.active_object]:
+                    self.transfer_weights(bone.name, closest_bone.name, mesh)
+            
+            # 切换到编辑模式删除骨骼
+            bpy.ops.object.mode_set(mode='EDIT')
+            
+            # 删除已合并的骨骼
+            for bone in bones_to_remove:
+                if bone.name in armature.edit_bones:
+                    edit_bone = armature.edit_bones[bone.name]
+                    # 如果骨骼有子级，先将子级的父级设置为当前骨骼的父级
+                    if edit_bone.children:
+                        parent = edit_bone.parent
+                        for child in edit_bone.children:
+                            child.parent = parent
+                    armature.edit_bones.remove(edit_bone)
+        
+        # 返回姿态模式
+        bpy.ops.object.mode_set(mode='POSE')
+        
+        return {'FINISHED'}
+    
+    def draw(self, context):
+        layout = self.layout
+        layout.prop(self, "use_global_center")
+        layout.prop(self, "include_root_bones")
+        
+    @staticmethod
+    def transfer_weights(from_bone_name, to_bone_name, mesh):
+        """
+        改进的权重转移函数
+        """
+        # 确保目标权重组存在
+        if to_bone_name not in mesh.vertex_groups:
+            mesh.vertex_groups.new(name=to_bone_name)
+        
+        # 获取源和目标权重组
+        from_group = mesh.vertex_groups.get(from_bone_name)
+        to_group = mesh.vertex_groups.get(to_bone_name)
+        
+        if not from_group:
+            return
+        
+        # 存储每个顶点的权重
+        weights = {}
+        for vertex in mesh.data.vertices:
+            try:
+                weight = from_group.weight(vertex.index)
+                if weight > 0:
+                    weights[vertex.index] = weight
+            except RuntimeError:
+                continue
+        
+        # 转移权重
+        if weights:
+            # 添加新权重
+            for vertex_index, weight in weights.items():
+                try:
+                    current_weight = 0
+                    try:
+                        current_weight = to_group.weight(vertex_index)
+                    except RuntimeError:
+                        pass
+                    # 使用 'REPLACE' 模式确保权重正确设置
+                    to_group.add([vertex_index], current_weight + weight, 'REPLACE')
+                except RuntimeError:
+                    continue
+        
+        # 删除原始权重组
+        mesh.vertex_groups.remove(from_group)
+
+class MQT_PT_BoneToolsPanel(Panel):
+    bl_label = "骨骼工具"
+    bl_idname = "MQT_PT_BoneToolsPanel"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = "MQ Tools"
+    bl_options = {'DEFAULT_CLOSED'}
+    
+    def draw(self, context):
+        layout = self.layout
+        
+        # 基本合并功能
+        box = layout.box()
+        box.label(text="基本合并")
+        
+        row = box.row()
+        row.operator("bone.merge_to_parent", text="合并到父级")
+        
+        row = box.row()
+        row.operator("bone.merge_to_active", text="合并到活动骨骼")
+        
+        # 高级合并功能
+        box = layout.box()
+        box.label(text="高级合并")
+        
+        row = box.row()
+        row.operator("bone.merge_siblings_half", text="左右对称合并")
+        
+        # 清理工具
+        box = layout.box()
+        box.label(text="清理工具")
+        
+        row = box.row()
+        row.operator("bone.remove_zero_weight", text="清除零权重骨骼")
+        
+        # 变换工具
+        box = layout.box()
+        box.label(text="变换工具")
+        
+        row = box.row()
+        row.operator("bone.apply_pose_transform", text="应用姿态变换")
+        
+        # 在非姿态模式下禁用按钮
+        if context.mode != 'POSE':
+            layout.enabled = False
+
+# --------------------------------------------------------------------------
 # 类注册和注销
 # --------------------------------------------------------------------------
 
@@ -1469,6 +2197,14 @@ classes = (
     VMT_OT_SelectAll,
     VMT_OT_DeselectAll,
     MQT_PT_VMTPanel,
+    
+    # 骨骼工具相关类
+    BONE_OT_merge_to_parent,
+    BONE_OT_merge_to_active,
+    BONE_OT_merge_siblings_half,  # 确保这行被添加
+    BONE_OT_remove_zero_weight,
+    BONE_OT_apply_pose_transform,
+    MQT_PT_BoneToolsPanel,
 )
 
 def register():
