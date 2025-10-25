@@ -40,14 +40,13 @@
 ## 仓库结构
 - `目白麦昆的MOD制作工具箱/Blender插件工具箱/`：Blender 多合一插件（MQ Tools v1.6.1）
 - `目白麦昆的MOD制作工具箱/Max工具箱/`：3ds Max 工具箱 v5.7（MaxScript）
-- `目白麦昆的MOD制作工具箱/Python程序/`：常用 Python 脚本（材质分件、音频转换）
+- `目白麦昆的MOD制作工具箱/Python程序/`：常用 Python 脚本（音频转换）
 - `目白麦昆的MOD制作工具箱/智能打包2.0/`：`VPK` 打包与 `VGUI` 相关批处理脚本
 
 ## 文件入口
 - Blender 插件：`目白麦昆的MOD制作工具箱/Blender插件工具箱/MQ_Tools_v1_6_1.py`
 - Max 工具箱：`目白麦昆的MOD制作工具箱/Max工具箱/目白麦昆的MAX工具箱V5.7.ms`
 - Python 程序：
-  - `目白麦昆的MOD制作工具箱/Python程序/快速材质分件_ctk.py`
   - `目白麦昆的MOD制作工具箱/Python程序/快速音频转换.py`
 - 批处理脚本（示例）：
   - `目白麦昆的MOD制作工具箱/智能打包2.0/智能八人打包.bat`
